@@ -4,7 +4,12 @@ import logging
 import time
 import requests
 import sys
-from credentials import SLACK_BOT_TOKEN, JIRA_AUTHORIZATION, JIRA_API_URL
+from credentials import SLACK_BOT_TOKEN,\
+    JIRA_AUTHORIZATION,\
+    JIRA_API_URL,\
+    CHANNEL_DIANA_TEST,\
+    CHANNEL_WEEKLY_RELEASE_UPDATE,\
+    CHANNEL_WEST_WING
 
 class InfobotxCalculation():
     def __init__(self):
@@ -48,7 +53,7 @@ class InfobotxCalculation():
 class SlackUpdater(object):
     SLACK_API_URL = 'https://slack.com/api/chat.postMessage'
 
-    def __init__(self, slack_bot_token = None, slack_bot_channel = 'C0CLL8H8E'):
+    def __init__(self, slack_bot_token = None, slack_bot_channel = CHANNEL_DIANA_TEST):
         assert slack_bot_token is not None
         assert slack_bot_channel is not None
 
