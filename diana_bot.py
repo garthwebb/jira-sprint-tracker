@@ -3,29 +3,44 @@
 import logging
 import time
 import requests
+import sys
 from credentials import SLACK_BOT_TOKEN, JIRA_AUTHORIZATION, JIRA_API_URL
 
 class InfobotxCalculation():
     def __init__(self):
         logging.basicConfig(level = logging.INFO)
 
-    def get_tickets(self, days_before = '2', project_name = 'Data / API'):
+    def get_tickets(self):
         """
         Gets the finished tickets statistics
         """
-        headers = {'contentType': "application/json", "Authorization": JIRA_AUTHORIZATION }
         response = []
+        days_before = '2'
 
-        finised_tickets = requests.get(JIRA_API_URL, params = {
-            'jql': 'status in(Closed,Solved,Done) AND project="' + project_name + '" AND updated >= -' + days_before + 'd AND type != "Retrospective Action"'
-        }, headers = headers).json()
+        if len(sys.argv) > 1 and sys.argv[1].isdigit() and sys.argv[1] > 0:
+            days_before = str(sys.argv[1])
 
-        print finised_tickets['total']
-        for ticket in finised_tickets['issues']:
+        finished_tickets = self.make_jira_request(days_before)
+
+        for ticket in finished_tickets['issues']:
             response.append({
                 "key" : ticket['key'],
                 "desc" : ticket['fields']['summary']
             })
+
+        return response
+
+    def make_jira_request(self, days_before, project_name = 'Data / API'):
+        headers = {
+            'contentType': "application/json",
+            "Authorization": JIRA_AUTHORIZATION
+        }
+
+        response = requests.get(JIRA_API_URL,
+            params = {
+                'jql': 'status in(Closed,Solved,Done) AND project="' + project_name + '" AND updated >= -' + days_before + 'd AND type != "Retrospective Action"'
+            },
+            headers = headers).json()
 
         return response
 
@@ -41,17 +56,16 @@ class SlackUpdater(object):
         self.slack_bot_channel = slack_bot_channel
 
     def post_slack_message(self, payload):
-        logging.info("Posting to Slack")
         response = requests.post(self.SLACK_API_URL,
-                      data={
+                      data = {
                           'channel': self.slack_bot_channel,
                           'token': self.slack_bot_token,
                           'text': payload,
                           'username': 'West-wing updater'
 
                       })
-        #print response.json()
-        logging.info("\nPost_slack_message: done")
+
+        logging.info("\nPosting to Slack: done")
 
     def prepare_slack_update(self, tickets):
         """
@@ -74,5 +88,5 @@ if __name__ == "__main__":
 
     tickets = calculation.get_tickets()
     release_update = slack_updater.prepare_slack_update(tickets)
-    #print release_update
+    print release_update
     slack_updater.post_slack_message(release_update)
