@@ -3,7 +3,7 @@
 import logging
 import time
 import requests
-from credentials import SLACK_BOT_TOKEN, JIRA_AUTHORIZATION, JURA_API_URL
+from credentials import SLACK_BOT_TOKEN, JIRA_AUTHORIZATION, JIRA_API_URL
 
 class InfobotxCalculation():
     def __init__(self):
@@ -16,7 +16,7 @@ class InfobotxCalculation():
         headers = {'contentType': "application/json", "Authorization": JIRA_AUTHORIZATION }
         response = []
 
-        finised_tickets = requests.get(JURA_API_URL, params = {
+        finised_tickets = requests.get(JIRA_API_URL, params = {
             'jql': 'status in(Closed,Solved,Done) AND project="' + project_name + '" AND updated >= -' + days_before + 'd AND type != "Retrospective Action"'
         }, headers = headers).json()
 
