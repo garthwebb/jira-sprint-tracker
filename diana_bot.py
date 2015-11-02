@@ -1,7 +1,6 @@
 # coding=utf-8
-
 import logging
-import time
+import datetime
 import requests
 import sys
 from credentials import SLACK_BOT_TOKEN,\
@@ -11,7 +10,27 @@ from credentials import SLACK_BOT_TOKEN,\
     CHANNEL_WEEKLY_RELEASE_UPDATE,\
     CHANNEL_WEST_WING
 
-class InfobotxCalculation():
+weekday = {
+    'MONDAY' : 0,
+    'TUESDAY' : 1,
+    'WEDNESDAY' : 2,
+    'THURSDAY' : 3,
+    'FRIDAY' : 4,
+    'SATURDAY' : 5,
+    'SUNDAY': 6
+}
+
+days_count = {
+    0: '6',
+    1: '2',
+    2: '3',
+    3: '2',
+    4: '3',
+    5: '4',
+    6: '5'
+}
+
+class JiraController():
     def __init__(self):
         logging.basicConfig(level = logging.INFO)
 
@@ -20,10 +39,7 @@ class InfobotxCalculation():
         Gets the finished tickets statistics
         """
         response = []
-        days_before = '2'
-
-        if len(sys.argv) > 1 and sys.argv[1].isdigit() and sys.argv[1] > 0:
-            days_before = str(sys.argv[1])
+        days_before = self.get_days_count()
 
         finished_tickets = self.make_jira_request(days_before)
 
@@ -37,17 +53,26 @@ class InfobotxCalculation():
 
     def make_jira_request(self, days_before, project_name = 'Data / API'):
         headers = {
-            'contentType': "application/json",
-            "Authorization": JIRA_AUTHORIZATION
+            'contentType': 'application/json',
+            'Authorization': JIRA_AUTHORIZATION
         }
 
         response = requests.get(JIRA_API_URL,
             params = {
-                'jql': 'status in(Closed,Solved,Done) AND project="' + project_name + '" AND updated >= -' + days_before + 'd AND type != "Retrospective Action"'
+                'jql': 'status in (Closed) AND project="' + project_name + '" AND updated >= -' + days_before + 'd AND status was in (QA, "Code Review")'
             },
             headers = headers).json()
 
         return response
+
+    def get_days_count(self):
+        if len(sys.argv) > 1 and sys.argv[1].isdigit() and sys.argv[1] > 0:
+            days_before = str(sys.argv[1])
+        else:
+            today = datetime.datetime.today().weekday()
+            days_before = days_count[today]
+
+        return days_before
 
 
 class SlackUpdater(object):
@@ -77,7 +102,7 @@ class SlackUpdater(object):
         Processes acquired results
         """
         if (len(tickets) == 0):
-            return '*Nothing user facing*'
+            return '*Content West- Wing:* Nothing user facing'
 
         result = '```'
 
@@ -88,10 +113,9 @@ class SlackUpdater(object):
 
 
 if __name__ == "__main__":
-    calculation = InfobotxCalculation()
+    calculation = JiraController()
     slack_updater = SlackUpdater( slack_bot_token = SLACK_BOT_TOKEN )
 
     tickets = calculation.get_tickets()
     release_update = slack_updater.prepare_slack_update(tickets)
-    print release_update
     slack_updater.post_slack_message(release_update)
