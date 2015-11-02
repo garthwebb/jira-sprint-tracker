@@ -97,17 +97,17 @@ class SlackUpdater(object):
 
         logging.info("\nPosting to Slack: done")
 
-    def prepare_slack_update(self, tickets):
+    def prepare_slack_update(self, tickets, team = '*Content West- Wing*'):
         """
         Processes acquired results
         """
         if (len(tickets) == 0):
-            return '*Content West- Wing:* Nothing user facing'
+            return team + ' :Nothing user facing'
 
         result = '```'
 
         for ticket in tickets:
-            result += 'https://wikia-inc.atlassian.net/browse/'+ ticket['key'] + ' ' + ticket['desc'] + '\n'
+            result += 'https://wikia-inc.atlassian.net/browse/' + ticket['key'] + ' ' + ticket['desc'] + '\n'
 
         return result + '```'
 
