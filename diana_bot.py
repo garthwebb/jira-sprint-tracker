@@ -3,22 +3,13 @@ import logging
 import datetime
 import requests
 import sys
+import getopt
 from credentials import SLACK_BOT_TOKEN,\
     JIRA_AUTHORIZATION,\
     JIRA_API_URL,\
     CHANNEL_DIANA_TEST,\
     CHANNEL_WEEKLY_RELEASE_UPDATE,\
     CHANNEL_WEST_WING
-
-weekday = {
-    'MONDAY' : 0,
-    'TUESDAY' : 1,
-    'WEDNESDAY' : 2,
-    'THURSDAY' : 3,
-    'FRIDAY' : 4,
-    'SATURDAY' : 5,
-    'SUNDAY': 6
-}
 
 days_count = {
     0: '6',
@@ -39,9 +30,9 @@ class JiraController():
         Gets the finished tickets statistics
         """
         response = []
-        days_before = self.get_days_count()
+        params = self.get_params()
 
-        finished_tickets = self.make_jira_request(days_before)
+        finished_tickets = self.make_jira_request(params)
 
         for ticket in finished_tickets['issues']:
             response.append({
@@ -51,7 +42,7 @@ class JiraController():
 
         return response
 
-    def make_jira_request(self, days_before, project_name = 'Data / API'):
+    def make_jira_request(self, params):
         headers = {
             'contentType': 'application/json',
             'Authorization': JIRA_AUTHORIZATION
@@ -59,20 +50,29 @@ class JiraController():
 
         response = requests.get(JIRA_API_URL,
             params = {
-                'jql': 'status in (Closed) AND project="' + project_name + '" AND updated >= -' + days_before + 'd AND status was in (QA, "Code Review")'
+                'jql': 'status in (Closed) AND project="' + params['project_name'] + '" AND updated >= -' + params['days_before'] + 'd AND status was in (QA, "Code Review")'
             },
             headers = headers).json()
 
+        logging.info("\nFetching data from last " + params['days_before'] + " days for project " + params['project_name'])
+
         return response
 
-    def get_days_count(self):
-        if len(sys.argv) > 1 and sys.argv[1].isdigit() and sys.argv[1] > 0:
-            days_before = str(sys.argv[1])
-        else:
-            today = datetime.datetime.today().weekday()
-            days_before = days_count[today]
+    def get_params(self):
+        project_name = 'Data / API'
+        today = datetime.datetime.today().weekday()
+        params = {'project_name': project_name, 'days_before': days_count[today]}
 
-        return days_before
+        optlist, args = getopt.getopt(sys.argv[1:], "p:d:", ["project=", "days="])
+        print optlist
+
+        for option, arg in optlist:
+            if option in ("-p", "--project") and arg != '--days':
+                params['project_name'] = arg
+            if option in ("-d", "--days") and arg.isdigit():
+                params['days_before'] = arg
+
+        return params
 
 
 class SlackUpdater(object):
