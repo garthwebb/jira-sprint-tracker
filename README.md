@@ -20,5 +20,8 @@ For now, it by default assumes releases are on Tuesdays and Thursdays.
 ## Options
 If you want to see tickets from last particular number of days, for example finished within last 10 days, run:
 
-`python diana_bot.py 10`
+`python diana_bot.py -d 10` or `python diana_bot.py --days 10`
+
+If you want to see tickets from particular project, for example Social, run:
+`python diana_bot.py -p Social` or `python diana_bot.py --project Social`
 
