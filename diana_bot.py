@@ -7,9 +7,7 @@ import getopt
 from credentials import SLACK_BOT_TOKEN,\
     JIRA_AUTHORIZATION,\
     JIRA_API_URL,\
-    CHANNEL_DIANA_TEST,\
-    CHANNEL_WEEKLY_RELEASE_UPDATE,\
-    CHANNEL_WEST_WING
+    SLACK_CHANNEL_ID
 
 days_count = {
     0: '6',
@@ -78,7 +76,7 @@ class JiraController():
 class SlackUpdater(object):
     SLACK_API_URL = 'https://slack.com/api/chat.postMessage'
 
-    def __init__(self, slack_bot_token = None, slack_bot_channel = CHANNEL_DIANA_TEST):
+    def __init__(self, slack_bot_token = None, slack_bot_channel = SLACK_CHANNEL_ID):
         assert slack_bot_token is not None
         assert slack_bot_channel is not None
 
