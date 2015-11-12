@@ -7,7 +7,8 @@ import getopt
 from credentials import SLACK_BOT_TOKEN,\
     JIRA_AUTHORIZATION,\
     JIRA_API_URL,\
-    SLACK_CHANNEL_ID
+    SLACK_CHANNEL_ID,\
+    SLACK_BOT_NAME
 
 days_count = {
     0: '6',
@@ -89,8 +90,7 @@ class SlackUpdater(object):
                           'channel': self.slack_bot_channel,
                           'token': self.slack_bot_token,
                           'text': payload,
-                          'username': 'West-wing updater'
-
+                          'username': SLACK_BOT_NAME
                       })
 
         logging.info("\nPosting to Slack: done")
