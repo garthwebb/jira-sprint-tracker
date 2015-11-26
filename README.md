@@ -4,10 +4,13 @@ Bot which posts on slack recently finished tickets.
 ## Setup
 To use bot you need to create file credentials.py where you'll put:
 ```
+SPECIAL_VERSION_URL = ''
 JIRA_API_URL = ''
-SLACK_BOT_TOKEN = ''
 JIRA_AUTHORIZATION = ''
-YOUR_CHANNEL_ID = ''
+JIRA_PROJECT_NAME = ''
+SLACK_CHANNEL_ID = ''
+SLACK_BOT_TOKEN = ''
+SLACK_BOT_NAME = ''
 ```
 
 ## Running
