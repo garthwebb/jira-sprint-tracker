@@ -1,82 +1,78 @@
 # coding=utf-8
 import logging
 import datetime
+import json
 import requests
 import sys
 import getopt
-import re
-import urllib
+import os.path
+from pprint import pprint
 from credentials import SLACK_BOT_TOKEN,\
     JIRA_AUTHORIZATION,\
     JIRA_API_URL,\
     SLACK_CHANNEL_ID,\
     SLACK_BOT_NAME,\
-    SPECIAL_VERSION_URL,\
     JIRA_PROJECT_NAME
 
-days_count = {
-    0: '6',
-    1: '2',
-    2: '3',
-    3: '2',
-    4: '3',
-    5: '4',
-    6: '5'
-}
 
-class JiraController():
+class JiraController:
     def __init__(self):
-        logging.basicConfig(level = logging.INFO)
+        logging.basicConfig(level=logging.INFO)
 
-    def get_tickets(self, release_version):
+    def get_tickets(self):
         """
         Gets the finished tickets statistics
         """
         response = []
-        params = self.get_params(release_version)
+        params = self.get_params()
 
         finished_tickets = self.make_jira_request(params)
 
         for ticket in finished_tickets['issues']:
+            fields = ticket.get('fields')
+            assignee = fields.get('assignee')
+            if assignee:
+                assignee_name = assignee.get('name')
+            else:
+                assignee_name = ''
+
             response.append({
-                "key" : ticket['key'],
-                "desc" : ticket['fields']['summary']
+                "key": ticket['key'],
+                "assignee": assignee_name,
+                "status": fields['status']['name'],
             })
 
         return response
 
-    def make_jira_request(self, params):
+    @staticmethod
+    def make_jira_request(params):
         headers = {
             'contentType': 'application/json',
             'Authorization': JIRA_AUTHORIZATION
         }
 
-        response = requests.get(JIRA_API_URL,
-            params = {
-                'jql': 'project="' + params['project_name'] + '" AND "Preview branch" ~ "' + params['release_version'] + '"'
-            },
-            headers = headers).json()
+        jql = 'project="{}" and Sprint in openSprints()'.format(params['project_name'])
 
-        logging.info("\nFetching data from last " + params['days_before'] + " days for project " + params['project_name'])
+        response = requests.get(JIRA_API_URL,
+                                params={'jql': jql},
+                                headers=headers).json()
+
+        logging.info("\nFetching data for project {}".format(params['project_name']))
 
         return response
 
-    def get_params(self, release_version):
-        today = datetime.datetime.today().weekday()
+    @staticmethod
+    def get_params():
         params = {
             'project_name': JIRA_PROJECT_NAME,
-            'days_before': days_count[today],
-            'release_version': 'wikia:%s' % release_version
         }
 
-        optlist, args = getopt.getopt(sys.argv[1:], "p:d:", ["project=", "days="])
+        optlist, args = getopt.getopt(sys.argv[1:], "p:", ["project="])
         print optlist
 
         for option, arg in optlist:
             if option in ("-p", "--project") and arg != '--days':
                 params['project_name'] = arg
-            if option in ("-d", "--days") and arg.isdigit():
-                params['days_before'] = arg
 
         return params
 
@@ -84,7 +80,7 @@ class JiraController():
 class SlackUpdater(object):
     SLACK_API_URL = 'https://slack.com/api/chat.postMessage'
 
-    def __init__(self, slack_bot_token = None, slack_bot_channel = SLACK_CHANNEL_ID):
+    def __init__(self, slack_bot_token=None, slack_bot_channel=SLACK_CHANNEL_ID):
         assert slack_bot_token is not None
         assert slack_bot_channel is not None
 
@@ -93,20 +89,23 @@ class SlackUpdater(object):
 
     def post_slack_message(self, payload):
         response = requests.post(self.SLACK_API_URL,
-                      data = {
-                          'channel': self.slack_bot_channel,
-                          'token': self.slack_bot_token,
-                          'text': payload,
-                          'username': SLACK_BOT_NAME
-                      })
+                                 data={
+                                     'channel': self.slack_bot_channel,
+                                     'token': self.slack_bot_token,
+                                     'text': payload,
+                                     'username': SLACK_BOT_NAME
+                                 })
 
         logging.info("\nPosting to Slack: done")
 
-    def prepare_slack_update(self, tickets, team = '*Content West- Wing*'):
+    @staticmethod
+    def prepare_slack_update(tickets, team='*Content West- Wing*'):
         """
         Processes acquired results
+        :param team:
+        :param tickets:
         """
-        if (len(tickets) == 0):
+        if len(tickets) == 0:
             return team + ' :Nothing user facing'
 
         result = '```'
@@ -116,19 +115,48 @@ class SlackUpdater(object):
 
         return result + '```'
 
-class Wikia(object):
-    def get_current_version(self):
-        handler = urllib.urlopen(SPECIAL_VERSION_URL)
-        html = handler.read()
-        matches = re.search(r"(release-\d+)\.\d+", html, re.MULTILINE)
-        assert matches is not None
-        return matches.group(1)
+
+class TicketLogger:
+    BASE_PATH = '/tmp/jira-bot/'
+
+    def update(self, tickets):
+        for t in tickets:
+            filename = self.BASE_PATH + t['key']
+
+            data = []
+            if os.path.exists(filename):
+                target = open(filename, 'r')
+                try:
+                    data = json.load(target)
+                    break
+                except ValueError:
+                    pass
+
+                target.close()
+
+            # If there's data and the last status line and assignee is unchanged, skip it
+            if len(data) > 0:
+                last_item = data[-1]
+                if last_item['status'] == t['status'] and last_item['assignee'] == t['assignee']:
+                    continue
+
+            t['ts'] = datetime.datetime.now().strftime("%c")
+            data.append(t)
+
+            target = open(filename, 'w+')
+            json.dump(data, target)
+            target.close()
+
 
 if __name__ == "__main__":
     calculation = JiraController()
-    slack_updater = SlackUpdater( slack_bot_token = SLACK_BOT_TOKEN )
-    wikia = Wikia()
+    slack_updater = SlackUpdater(slack_bot_token=SLACK_BOT_TOKEN)
+    logger = TicketLogger()
 
-    tickets = calculation.get_tickets(wikia.get_current_version())
-    release_update = slack_updater.prepare_slack_update(tickets)
-    slack_updater.post_slack_message(release_update)
+    tickets = calculation.get_tickets()
+    logger.update(tickets)
+
+
+    #pprint(tickets)
+    #release_update = slack_updater.prepare_slack_update(tickets)
+    #slack_updater.post_slack_message(release_update)
