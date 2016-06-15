@@ -6,10 +6,11 @@ import requests
 import sys
 import getopt
 import os.path
-from pprint import pprint
-from credentials import SLACK_BOT_TOKEN,\
+
+from credentials import\
+    SLACK_BOT_TOKEN,\
     JIRA_AUTHORIZATION,\
-    JIRA_API_URL,\
+    JIRA_API_SEARCH_URL,\
     SLACK_CHANNEL_ID,\
     SLACK_BOT_NAME,\
     JIRA_PROJECT_NAME
@@ -53,7 +54,7 @@ class JiraController:
 
         jql = 'project="{}" and Sprint in openSprints()'.format(params['project_name'])
 
-        response = requests.get(JIRA_API_URL,
+        response = requests.get(JIRA_API_SEARCH_URL,
                                 params={'jql': jql},
                                 headers=headers).json()
 
@@ -76,6 +77,37 @@ class JiraController:
 
         return params
 
+class JiraIssue(object):
+    expand = ''
+    id = ''
+    selfUrl = ''
+    key = ''
+    fields = dict()
+    changelog = object
+
+    def __init__(self, data):
+        self.expand = data.get('expand')
+        self.id = data.get('id')
+        self.selfUrl = data.get('selfUrl')
+        self.key = data.get('key')
+
+        for fieldName in data.get('fields'):
+            value = data.get('fields').get(fieldName)
+            self.fields[fieldName] = JiraIssueField(fieldName, value)
+
+        self.changelog = JiraIssueChangelog(data.get('changelog'))
+
+
+class JiraIssueField(object):
+
+    def __init__(self, name, value):
+        self.name = name
+        self.value = value
+
+class JiraIssueChangelog(object):
+
+    def __init__(self, log):
+        self.log = log
 
 class SlackUpdater(object):
     SLACK_API_URL = 'https://slack.com/api/chat.postMessage'
@@ -128,7 +160,6 @@ class TicketLogger:
                 target = open(filename, 'r')
                 try:
                     data = json.load(target)
-                    break
                 except ValueError:
                     pass
 
